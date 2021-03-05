@@ -6,22 +6,23 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/codec"
-	"github.com/xhaoh94/goxh/engine/network/service/servicebase"
+	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 )
 
 type (
 	//Channel 通信信道
 	Channel struct {
-		rfn        servicebase.ReadFn
-		cfn        servicebase.CloseFn
-		wfn        servicebase.WriteFn
+		rfn        func([]byte)
+		cfn        func()
+		wfn        func([]byte)
 		writeMutex sync.Mutex
-		Wg         sync.WaitGroup
-		IsRun      bool
-
 		remoteAddr string
 		localAddr  string
+
+		Service types.IService
+		Wg      sync.WaitGroup
+		IsRun   bool
 	}
 )
 
@@ -33,6 +34,11 @@ func (c *Channel) RemoteAddr() string {
 //LocalAddr 获取本地地址
 func (c *Channel) LocalAddr() string {
 	return c.localAddr
+}
+
+//GetService 获取挂载的服务
+func (c *Channel) GetService() types.IService {
+	return c.Service
 }
 
 //Read
@@ -129,16 +135,18 @@ func (c *Channel) OnStop() {
 	c.rfn = nil
 	c.wfn = nil
 	c.cfn = nil
+	c.Service = nil
 }
 
 //SetCallBackFn 设置回调
-func (c *Channel) SetCallBackFn(rfn servicebase.ReadFn, cfn servicebase.CloseFn) {
+func (c *Channel) SetCallBackFn(rfn func([]byte), cfn func()) {
 	c.rfn = rfn
 	c.cfn = cfn
 }
 
 //Init 初始化
-func (c *Channel) Init(wfn servicebase.WriteFn, remoteAddr string, localAddr string) {
+func (c *Channel) Init(service types.IService, wfn func([]byte), remoteAddr string, localAddr string) {
+	c.Service = service
 	c.wfn = wfn
 	c.remoteAddr = remoteAddr
 	c.localAddr = localAddr

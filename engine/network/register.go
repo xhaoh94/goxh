@@ -34,7 +34,7 @@ type (
 		//ServiceID 标记
 		ServiceID string
 		//ServiceType 服务类型
-		ServiceType app.ServiceType
+		ServiceType string
 		//版本
 		Version string
 	}
@@ -61,16 +61,16 @@ func newServiceConfig(val []byte) (*ServiceConfig, error) {
 	return service, nil
 }
 
-func registerService() {
+func registerService(outsideAddr string, interiorAddr string, rpcAddr string) {
 	keyToService = make(map[string]*ServiceConfig)
 	idToService = make(map[string]*ServiceConfig)
 
 	curService = &ServiceConfig{
 		ServiceID:    app.SID,
-		ServiceType:  app.SType,
-		OutsideAddr:  app.OutsideAddr,
-		InteriorAddr: app.InteriorAddr,
-		RPCAddr:      app.RPCAddr,
+		ServiceType:  app.ServiceType,
+		OutsideAddr:  outsideAddr,
+		InteriorAddr: interiorAddr,
+		RPCAddr:      rpcAddr,
 		Version:      app.Version,
 	}
 	timeoutCtx, timeoutCancelFunc := context.WithCancel(context.TODO())
@@ -120,7 +120,7 @@ func GetServiceConfByID(id string) *ServiceConfig {
 }
 
 //GetServiceConfListByType 获取对应类型的所有服务配置
-func GetServiceConfListByType(serviceType app.ServiceType) []*ServiceConfig {
+func GetServiceConfListByType(serviceType string) []*ServiceConfig {
 	defer lock.RUnlock()
 	lock.RLock()
 	list := make([]*ServiceConfig, 0)

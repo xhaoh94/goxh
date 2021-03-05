@@ -3,45 +3,38 @@ package network
 import (
 	"sync"
 
-	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/consts"
 	"github.com/xhaoh94/goxh/engine/network/rpc"
-	"github.com/xhaoh94/goxh/engine/network/service/servicebase"
+	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 )
 
-type (
-	//Network 服务结构体
-	Network struct {
-		service IService
-
-		idToSession map[string]ISession //Accept Map
-		idMutex     sync.Mutex
-	}
-	//OutsideNetwork 外部服务体
-	OutsideNetwork struct {
-		Network
-	}
-)
-
 var (
-	isRun    bool
-	wg       sync.WaitGroup
-	outside  *OutsideNetwork
-	interior *InteriorNetwork
+	idToSession   map[string]types.ISession //Accept Map
+	idMutex       sync.Mutex
+	addrToSession map[string]types.ISession //Connect Map
+	addrMutex     sync.Mutex
+	isRun         bool
+	wg            sync.WaitGroup
+	outside       types.IService
+	interior      types.IService
 )
 
 //SetOutsideService 设置外部服务
-func SetOutsideService(ser IService) {
-	outside = &OutsideNetwork{}
-	outside.service = ser
+func SetOutsideService(ser types.IService, addr string) {
+	outside = ser
+	outside.Init(addr, onAccept)
 }
 
 //SetInteriorService 设置内部服务
-func SetInteriorService(ser IService) {
-	interior = &InteriorNetwork{}
-	interior.service = ser
-	interior.addrToSession = make(map[string]ISession, 0)
+func SetInteriorService(ser types.IService, addr string) {
+	interior = ser
+	interior.Init(addr, onAccept)
+}
+
+//SetGrpcAddr 设置grpc服务
+func SetGrpcAddr(addr string) {
+	rpc.Init(addr)
 }
 
 //Start 网络初始化入口
@@ -49,18 +42,25 @@ func Start() {
 	if isRun {
 		return
 	}
+	idToSession = make(map[string]types.ISession)
+	addrToSession = make(map[string]types.ISession)
+	var outsideAddr, interiorAddr, rpcAddr string
 	if interior == nil {
 		xlog.Fatal("service is nil")
 		return
 	}
-	if outside != nil {
-		outside.start(app.OutsideAddr)
-	}
+	interiorAddr = interior.GetAddr()
+	rpcAddr = rpc.GetAddr()
 
 	isRun = true
-	interior.start(app.InteriorAddr)
+	if outside != nil {
+		outsideAddr = outside.GetAddr()
+		outside.Start()
+	}
+	interior.Start()
 	rpc.Start()
-	registerService()
+
+	registerService(outsideAddr, interiorAddr, rpcAddr)
 }
 
 //Stop 销毁
@@ -68,81 +68,119 @@ func Stop() {
 	if !isRun {
 		return
 	}
+
 	isRun = false
 	unRegisterService()
 	rpc.Stop()
-	if outside != nil {
-		outside.stop()
+
+	idMutex.Lock()
+	for k := range idToSession {
+		idToSession[k].Stop()
 	}
-	interior.stop()
+	idMutex.Unlock()
+
+	addrMutex.Lock()
+	for k := range addrToSession {
+		addrToSession[k].Stop()
+	}
+	addrMutex.Unlock()
+
+	if outside != nil {
+		outside.Stop()
+	}
+	interior.Stop()
 	wg.Wait()
 }
 
 //GetSession 通过id获取Session
-func GetSession(sid string) ISession {
-	defer outside.idMutex.Unlock()
-	outside.idMutex.Lock()
-	session, ok := outside.idToSession[sid]
-	if ok {
-		return session
-	}
-
-	defer interior.idMutex.Unlock()
-	interior.idMutex.Lock()
-	session, ok = interior.idToSession[sid]
+func GetSession(sid string) types.ISession {
+	defer idMutex.Unlock()
+	idMutex.Lock()
+	session, ok := idToSession[sid]
 	if ok {
 		return session
 	}
 	return nil
 }
 
-func (nw *Network) start(addr string) {
-	if addr == "" {
-		xlog.Fatal("addr is nil")
-		return
+//GetSessionByAddr 通过地址获取Session
+func GetSessionByAddr(addr string) types.ISession {
+
+	defer addrMutex.Unlock()
+	addrMutex.Lock()
+	if s, ok := addrToSession[addr]; ok {
+		return s
 	}
-	nw.idToSession = make(map[string]ISession)
-	nw.service.Init(addr, nw.onAccept)
-	nw.service.Start()
+	s := onConnect(addr)
+	if s == nil {
+		xlog.Error("create session fail addr:[%s]", addr)
+		return nil
+	}
+	addrToSession[addr] = s
+	return s
+}
+func onConnect(addr string) types.ISession {
+	channel := interior.ConnectChannel(addr)
+	if channel != nil {
+		session := onCreateSession(channel, consts.Connector)
+		if session != nil {
+			idMutex.Lock()
+			idToSession[session.UID()] = session
+			idMutex.Unlock()
+			session.Start()
+			return session
+		}
+	}
+	return nil
 }
 
-func (nw *Network) stop() {
-	nw.idMutex.Lock()
-	for k := range nw.idToSession {
-		nw.idToSession[k].Stop()
-	}
-	nw.idMutex.Unlock()
-	nw.service.Stop()
-}
-
-func (nw *Network) onDelete(session ISession) {
-	if nw.delSessionByID(session.UID()) {
+func onDelete(session types.ISession) {
+	if delSession(session) {
 		wg.Done()
 	}
 }
-func (nw *Network) onAccept(channel servicebase.IChannel) {
-	session := nw.onCreateSession(channel, consts.Accept, nw.onDelete)
+
+func delSession(session types.ISession) bool {
+	delSessionByAddr(session.RemoteAddr())
+	if ok := delSessionByID(session.UID()); ok {
+		return true
+	}
+	return false
+}
+
+func delSessionByID(id string) bool {
+	defer idMutex.Unlock()
+	idMutex.Lock()
+	if _, ok := idToSession[id]; ok {
+		delete(idToSession, id)
+		return true
+	}
+	return false
+}
+
+func delSessionByAddr(addr string) {
+	addrMutex.Lock()
+	_, ok := addrToSession[addr]
+	if ok {
+		delete(addrToSession, addr)
+	}
+	addrMutex.Unlock()
+}
+
+func onAccept(channel types.IChannel) {
+	session := onCreateSession(channel, consts.Accept)
 	if session != nil {
-		nw.idMutex.Lock()
-		nw.idToSession[session.UID()] = session
-		nw.idMutex.Unlock()
+		idMutex.Lock()
+		idToSession[session.UID()] = session
+		idMutex.Unlock()
 		session.Start()
 	}
 }
-func (nw *Network) onCreateSession(channel servicebase.IChannel, t int, fn func(ISession)) ISession {
-	session := nw.service.NewSession(channel, t, fn)
+
+func onCreateSession(channel types.IChannel, tag int) types.ISession {
+	session := channel.GetService().NewSession(channel, tag, onDelete)
 	if session != nil {
 		wg.Add(1)
 	}
 	return session
-}
-
-func (nw *Network) delSessionByID(id string) bool {
-	defer nw.idMutex.Unlock()
-	nw.idMutex.Lock()
-	if _, ok := nw.idToSession[id]; ok {
-		delete(nw.idToSession, id)
-		return true
-	}
-	return false
 }

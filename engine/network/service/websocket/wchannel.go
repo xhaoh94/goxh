@@ -6,6 +6,7 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/network/service"
+	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 
 	"github.com/gorilla/websocket"
@@ -30,9 +31,9 @@ type (
 	}
 )
 
-func (w *WChannel) init(conn *websocket.Conn) {
+func (w *WChannel) init(service types.IService, conn *websocket.Conn) {
 	w.conn = conn
-	w.Init(w.write, w.Conn().RemoteAddr().String(), w.Conn().LocalAddr().String())
+	w.Init(service, w.write, w.Conn().RemoteAddr().String(), w.Conn().LocalAddr().String())
 }
 
 //Conn 获取通信体

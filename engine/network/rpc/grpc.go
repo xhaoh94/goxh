@@ -4,7 +4,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/event"
 	"github.com/xhaoh94/goxh/engine/xlog"
 
@@ -12,6 +11,7 @@ import (
 )
 
 var (
+	rpcAddr   string
 	addr2Conn map[string]*grpc.ClientConn
 	addrMutex sync.Mutex
 	server    *grpc.Server
@@ -19,12 +19,22 @@ var (
 	isRun     bool
 )
 
-//Start 初始化
+//获取服务地址
+func GetAddr() string {
+	return rpcAddr
+}
+
+//Init 初始化
+func Init(addr string) {
+	rpcAddr = addr
+}
+
+//Start 开启服务
 func Start() {
 	if isRun {
 		return
 	}
-	if app.RPCAddr == "" {
+	if rpcAddr == "" {
 		return
 	}
 	isRun = true
@@ -32,12 +42,12 @@ func Start() {
 
 	if listen == nil {
 		var err error
-		listen, err = net.Listen("tcp", app.RPCAddr)
+		listen, err = net.Listen("tcp", rpcAddr)
 		if err != nil {
 			xlog.Fatal("failed to listen: %v", err)
 		}
 		server = grpc.NewServer()
-		xlog.Info("rpc service Waiting for clients. -> [%s]", app.RPCAddr)
+		xlog.Info("rpc service Waiting for clients. -> [%s]", rpcAddr)
 		event.Bind("_init_module_ok_", func() {
 			if listen != nil {
 				go server.Serve(listen)
@@ -46,7 +56,7 @@ func Start() {
 	}
 }
 
-//Stop 销毁
+//Stop 停止服务
 func Stop() {
 	if !isRun {
 		return

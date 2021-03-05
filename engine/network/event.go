@@ -31,6 +31,10 @@ func Register(msgid uint32, fn interface{}) {
 	event.BindNet(msgid, fn)
 }
 
+func TestReg(fn interface{}) interface{} {
+	return nil
+}
+
 //RegisterRPC 注册rpc
 func RegisterRPC(args ...interface{}) {
 	l := len(args)

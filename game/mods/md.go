@@ -9,9 +9,9 @@ import (
 
 const (
 	//Gate 网关服务
-	Gate app.ServiceType = "gate"
+	Gate string = "gate"
 	//Login 登录服务
-	Login app.ServiceType = "login"
+	Login string = "login"
 )
 
 type (
@@ -23,7 +23,7 @@ type (
 
 //OnInit 初始化
 func (mm *MainModule) OnInit() {
-	switch app.SType {
+	switch app.ServiceType {
 	case Gate:
 		mm.Put(&gate.GateModule{})
 		break

@@ -46,7 +46,7 @@ func newHook() *lumberjack.Logger {
 		panic(err)
 	}
 	now := time.Now()
-	module := fmt.Sprintf("%s_%d_%02d_%02d_%02d_%02d_%02d.log", app.SType, now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
+	module := fmt.Sprintf("%s_%d_%02d_%02d_%02d_%02d_%02d.log", app.ServiceType, now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())
 
 	return &lumberjack.Logger{
 		Filename:   filepath.Join(path, module),

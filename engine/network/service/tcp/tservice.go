@@ -6,7 +6,7 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/network/service"
-	"github.com/xhaoh94/goxh/engine/network/service/servicebase"
+	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 )
 
@@ -58,12 +58,12 @@ func (ts *TService) connection(conn *net.Conn) {
 }
 func (ts *TService) addChannel(conn *net.Conn) (tChannel *TChannel) {
 	tChannel = channelPool.Get().(*TChannel)
-	tChannel.init(conn)
+	tChannel.init(ts, conn)
 	return
 }
 
 //ConnectChannel 链接新信道
-func (ts *TService) ConnectChannel(addr string) servicebase.IChannel {
+func (ts *TService) ConnectChannel(addr string) types.IChannel {
 	var connCount int
 	for {
 		conn, err := net.DialTimeout("tcp", addr, app.ConnectTimeout)

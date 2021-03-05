@@ -7,11 +7,10 @@ import (
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/consts"
 	"github.com/xhaoh94/goxh/engine/event"
-	"github.com/xhaoh94/goxh/engine/network"
 	"github.com/xhaoh94/goxh/engine/network/actor"
 	"github.com/xhaoh94/goxh/engine/network/proto"
 	"github.com/xhaoh94/goxh/engine/network/rpc"
-	"github.com/xhaoh94/goxh/engine/network/service/servicebase"
+	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 	"github.com/xhaoh94/goxh/util"
 )
@@ -20,9 +19,10 @@ type (
 	//Session 会话
 	Session struct {
 		SessionTag
-		channel       servicebase.IChannel
+		isRun         bool
+		channel       types.IChannel
 		id            string
-		delFn         func(network.ISession)
+		delFn         func(types.ISession)
 		ctx           context.Context
 		ctxCancelFunc context.CancelFunc
 	}
@@ -52,8 +52,22 @@ func (s *Session) LocalAddr() string {
 	return s.channel.LocalAddr()
 }
 
+//Init 初始化
+func (s *Session) init(ctx context.Context, channel types.IChannel, t int, delFn func(types.ISession)) {
+	s.id = util.GetUUID()
+	s.channel = channel
+	s.tag = t
+	s.delFn = delFn
+	s.ctx, s.ctxCancelFunc = context.WithCancel(ctx)
+	s.channel.SetCallBackFn(s.read, s.close)
+}
+
 //Start 启动
 func (s *Session) Start() {
+	if s.isRun {
+		return
+	}
+	s.isRun = true
 	s.channel.Start()
 	if s.tag == consts.Connector { //如果是连接者 启动心跳发送
 		go s.onHeartbeat()
@@ -62,18 +76,22 @@ func (s *Session) Start() {
 
 //Stop 关闭
 func (s *Session) Stop() {
-	if !s.isRun() {
+	if !s.isRun {
+		return
+	}
+	if !s.isAct() {
 		return
 	}
 	s.channel.Stop()
+	s.isRun = false
 }
 
 //Send 发送
 func (s *Session) Send(cmd uint32, msg interface{}) {
-	if !s.isRun() {
+	if !s.isAct() {
 		return
 	}
-	pkt := network.NewByteArray(make([]byte, 0))
+	pkt := newByteArray(make([]byte, 0))
 	defer pkt.Reset()
 	pkt.AppendByte(_csc)
 	pkt.AppendUint32(cmd)
@@ -83,10 +101,10 @@ func (s *Session) Send(cmd uint32, msg interface{}) {
 	s.SendData(pkt.SendData())
 }
 func (s *Session) Actor(actorID uint32, cmd uint32, msg interface{}) {
-	if !s.isRun() {
+	if !s.isAct() {
 		return
 	}
-	pkt := network.NewByteArray(make([]byte, 0))
+	pkt := newByteArray(make([]byte, 0))
 	defer pkt.Reset()
 	pkt.AppendByte(_actor)
 	pkt.AppendUint32(actorID)
@@ -98,16 +116,16 @@ func (s *Session) Actor(actorID uint32, cmd uint32, msg interface{}) {
 }
 
 //Call 呼叫
-func (s *Session) Call(msg interface{}, response interface{}) servicebase.IDefaultRPC {
+func (s *Session) Call(msg interface{}, response interface{}) rpc.IDefaultRPC {
 	nr := &rpc.DefalutRPC{SessionID: s.id, C: make(chan bool), Response: response}
-	if !s.isRun() {
+	if !s.isAct() {
 		defer nr.Run(false)
 		return nr
 	}
 	msgID := converMsgID(msg, response)
 	rpcid := rpc.AssignRPCID()
 	nr.RPCID = rpcid
-	pkt := network.NewByteArray(make([]byte, 0))
+	pkt := newByteArray(make([]byte, 0))
 	defer pkt.Reset()
 	pkt.AppendByte(_rpcs)
 	pkt.AppendUint32(msgID)
@@ -123,10 +141,10 @@ func (s *Session) Call(msg interface{}, response interface{}) servicebase.IDefau
 
 //Reply 回应
 func (s *Session) Reply(msg interface{}, rpcid uint32) {
-	if !s.isRun() {
+	if !s.isAct() {
 		return
 	}
-	pkt := network.NewByteArray(make([]byte, 0))
+	pkt := newByteArray(make([]byte, 0))
 	defer pkt.Reset()
 	pkt.AppendByte(_rpcr)
 	pkt.AppendUint32(rpcid)
@@ -137,22 +155,13 @@ func (s *Session) Reply(msg interface{}, rpcid uint32) {
 	return
 }
 func (s *Session) SendData(buf []byte) {
-	if !s.isRun() {
+	if !s.isAct() {
 		return
 	}
 	s.channel.Send(buf)
 }
 
-func (s *Session) init(ctx context.Context, channel servicebase.IChannel, t int, delFn func(network.ISession)) {
-	s.id = util.GetUUID()
-	s.channel = channel
-	s.tag = t
-	s.delFn = delFn
-	s.ctx, s.ctxCancelFunc = context.WithCancel(ctx)
-	channel.SetCallBackFn(s.read, s.close)
-}
-
-func (s *Session) isRun() bool {
+func (s *Session) isAct() bool {
 	return s.id != ""
 }
 
@@ -165,10 +174,10 @@ func (s *Session) onHeartbeat() {
 	}
 }
 func (s *Session) sendHeartbeat(t byte) {
-	if !s.isRun() {
+	if !s.isAct() {
 		return
 	}
-	pkt := network.NewByteArray(make([]byte, 0))
+	pkt := newByteArray(make([]byte, 0))
 	defer pkt.Reset()
 	pkt.AppendByte(t)
 	s.SendData(pkt.SendData())
@@ -176,10 +185,10 @@ func (s *Session) sendHeartbeat(t byte) {
 
 //OnRead 读取数据
 func (s *Session) read(data []byte) {
-	if !s.isRun() {
+	if !s.isAct() {
 		return
 	}
-	pkt := network.NewByteArray(data)
+	pkt := newByteArray(data)
 	defer pkt.Reset()
 	t := pkt.ReadOneByte()
 	switch t {

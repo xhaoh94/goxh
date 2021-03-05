@@ -8,12 +8,18 @@ import (
 )
 
 //DefalutRPC 自定义rpcdata
-type DefalutRPC struct {
-	SessionID string
-	RPCID     uint32
-	C         chan bool
-	Response  interface{}
-}
+type (
+	//IDefaultRPC rpc
+	IDefaultRPC interface {
+		Await() bool
+	}
+	DefalutRPC struct {
+		SessionID string
+		RPCID     uint32
+		C         chan bool
+		Response  interface{}
+	}
+)
 
 //Run 调用
 func (nr *DefalutRPC) Run(success bool) {

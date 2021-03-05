@@ -1,4 +1,4 @@
-package network
+package service
 
 import (
 	"sync"
@@ -33,7 +33,7 @@ type ByteArray struct {
 	data     []byte
 }
 
-func NewByteArray(data []byte) *ByteArray {
+func newByteArray(data []byte) *ByteArray {
 	b := bytePool.Get().(*ByteArray)
 	b.data = data
 	b.position = 0

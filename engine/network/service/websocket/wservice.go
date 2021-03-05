@@ -7,7 +7,8 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/network/service"
-	"github.com/xhaoh94/goxh/engine/network/service/servicebase"
+	"github.com/xhaoh94/goxh/engine/network/types"
+
 	"github.com/xhaoh94/goxh/engine/xlog"
 
 	"github.com/gorilla/websocket"
@@ -20,9 +21,9 @@ type WService struct {
 	server   *http.Server
 }
 
-//Init 服务初始化
-func (ws *WService) Init(addr string, accept servicebase.AcceptFn) {
-	ws.Service.Init(addr, accept)
+//Start 启动
+func (ws *WService) Start() {
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", ws.wsPage)
 	ws.server = &http.Server{Addr: ws.GetAddr(), Handler: mux}
@@ -31,11 +32,6 @@ func (ws *WService) Init(addr string, accept servicebase.AcceptFn) {
 		WriteBufferSize: 1024,
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
-
-}
-
-//Start 启动
-func (ws *WService) Start() {
 	xlog.Info("websocket service Waiting for clients. -> [%s]", ws.GetAddr())
 	go ws.accept()
 }
@@ -68,12 +64,12 @@ func (ws *WService) connection(conn *websocket.Conn) {
 }
 func (ws *WService) addChannel(conn *websocket.Conn) (wChannel *WChannel) {
 	wChannel = channelPool.Get().(*WChannel)
-	wChannel.init(conn)
+	wChannel.init(ws, conn)
 	return
 }
 
 //ConnectChannel 链接新信道
-func (ws *WService) ConnectChannel(addr string) servicebase.IChannel {
+func (ws *WService) ConnectChannel(addr string) types.IChannel {
 	var connCount int
 	for {
 		u := url.URL{Scheme: "ws", Host: addr, Path: "/ws"}

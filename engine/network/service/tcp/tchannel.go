@@ -7,13 +7,14 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/network/service"
+	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 )
 
-var channelPool sync.Pool
+var channelPool *sync.Pool
 
 func init() {
-	channelPool = sync.Pool{
+	channelPool = &sync.Pool{
 		New: func() interface{} {
 			return &TChannel{}
 		},
@@ -29,9 +30,9 @@ type (
 	}
 )
 
-func (t *TChannel) init(conn *net.Conn) {
+func (t *TChannel) init(service types.IService, conn *net.Conn) {
 	t.conn = conn
-	t.Init(t.write, t.Conn().RemoteAddr().String(), t.Conn().LocalAddr().String())
+	t.Init(service, t.write, t.Conn().RemoteAddr().String(), t.Conn().LocalAddr().String())
 }
 
 //Conn 获取通信体
