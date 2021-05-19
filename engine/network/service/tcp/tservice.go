@@ -16,6 +16,11 @@ type TService struct {
 	listen net.Listener
 }
 
+func (ts *TService) Init(addr string) {
+	ts.Service.Init(addr)
+	ts.Service.ConnectChannelFunc = ts.connectChannel
+}
+
 //Start 启动
 func (ts *TService) Start() {
 	//初始化socket
@@ -32,9 +37,9 @@ func (ts *TService) Start() {
 	go ts.accept()
 }
 func (ts *TService) accept() {
-	defer ts.Wg.Done()
+	defer ts.AcceptWg.Done()
 	ts.IsRun = true
-	ts.Wg.Add(1)
+	ts.AcceptWg.Add(1)
 	for {
 		conn, err := ts.listen.Accept()
 		if !ts.IsRun {
@@ -58,12 +63,12 @@ func (ts *TService) connection(conn *net.Conn) {
 }
 func (ts *TService) addChannel(conn *net.Conn) (tChannel *TChannel) {
 	tChannel = channelPool.Get().(*TChannel)
-	tChannel.init(ts, conn)
+	tChannel.init(conn)
 	return
 }
 
-//ConnectChannel 链接新信道
-func (ts *TService) ConnectChannel(addr string) types.IChannel {
+//connectChannel 链接新信道
+func (ts *TService) connectChannel(addr string) types.IChannel {
 	var connCount int
 	for {
 		conn, err := net.DialTimeout("tcp", addr, app.ConnectTimeout)
@@ -85,10 +90,10 @@ func (ts *TService) Stop() {
 	if !ts.IsRun {
 		return
 	}
+	ts.Service.Stop()
 	ts.IsRun = false
 	ts.CtxCancelFunc()
 	ts.listen.Close()
 	// 等待线程结束
-	ts.Wg.Wait()
-
+	ts.AcceptWg.Wait()
 }

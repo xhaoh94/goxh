@@ -7,7 +7,6 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/network/service"
-	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 )
 
@@ -30,9 +29,9 @@ type (
 	}
 )
 
-func (t *TChannel) init(service types.IService, conn *net.Conn) {
+func (t *TChannel) init(conn *net.Conn) {
 	t.conn = conn
-	t.Init(service, t.write, t.Conn().RemoteAddr().String(), t.Conn().LocalAddr().String())
+	t.Init(t.write, t.Conn().RemoteAddr().String(), t.Conn().LocalAddr().String())
 }
 
 //Conn 获取通信体

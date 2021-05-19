@@ -6,7 +6,6 @@ import (
 
 	"github.com/xhaoh94/goxh/app"
 	"github.com/xhaoh94/goxh/engine/codec"
-	"github.com/xhaoh94/goxh/engine/network/types"
 	"github.com/xhaoh94/goxh/engine/xlog"
 )
 
@@ -20,9 +19,8 @@ type (
 		remoteAddr string
 		localAddr  string
 
-		Service types.IService
-		Wg      sync.WaitGroup
-		IsRun   bool
+		Wg    sync.WaitGroup
+		IsRun bool
 	}
 )
 
@@ -34,11 +32,6 @@ func (c *Channel) RemoteAddr() string {
 //LocalAddr 获取本地地址
 func (c *Channel) LocalAddr() string {
 	return c.localAddr
-}
-
-//GetService 获取挂载的服务
-func (c *Channel) GetService() types.IService {
-	return c.Service
 }
 
 //Read
@@ -135,7 +128,6 @@ func (c *Channel) OnStop() {
 	c.rfn = nil
 	c.wfn = nil
 	c.cfn = nil
-	c.Service = nil
 }
 
 //SetCallBackFn 设置回调
@@ -145,8 +137,7 @@ func (c *Channel) SetCallBackFn(rfn func([]byte), cfn func()) {
 }
 
 //Init 初始化
-func (c *Channel) Init(service types.IService, wfn func([]byte), remoteAddr string, localAddr string) {
-	c.Service = service
+func (c *Channel) Init(wfn func([]byte), remoteAddr string, localAddr string) {
 	c.wfn = wfn
 	c.remoteAddr = remoteAddr
 	c.localAddr = localAddr

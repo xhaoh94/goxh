@@ -19,10 +19,9 @@ type (
 	//Session 会话
 	Session struct {
 		SessionTag
-		isRun         bool
+		service       *Service
 		channel       types.IChannel
 		id            string
-		delFn         func(types.ISession)
 		ctx           context.Context
 		ctxCancelFunc context.CancelFunc
 	}
@@ -53,37 +52,30 @@ func (s *Session) LocalAddr() string {
 }
 
 //Init 初始化
-func (s *Session) init(ctx context.Context, channel types.IChannel, t int, delFn func(types.ISession)) {
+func (s *Session) init(service *Service, channel types.IChannel, t consts.SessionTag) {
 	s.id = util.GetUUID()
 	s.channel = channel
 	s.tag = t
-	s.delFn = delFn
-	s.ctx, s.ctxCancelFunc = context.WithCancel(ctx)
+	s.service = service
+	s.ctx, s.ctxCancelFunc = context.WithCancel(service.Ctx)
 	s.channel.SetCallBackFn(s.read, s.close)
 }
 
-//Start 启动
-func (s *Session) Start() {
-	if s.isRun {
-		return
-	}
-	s.isRun = true
+//start 启动
+func (s *Session) start() {
 	s.channel.Start()
-	if s.tag == consts.Connector { //如果是连接者 启动心跳发送
+	if s.GetTag() == consts.Connector { //如果是连接者 启动心跳发送
 		go s.onHeartbeat()
 	}
 }
 
 //Stop 关闭
-func (s *Session) Stop() {
-	if !s.isRun {
-		return
-	}
+func (s *Session) stop() {
+
 	if !s.isAct() {
 		return
 	}
 	s.channel.Stop()
-	s.isRun = false
 }
 
 //Send 发送
@@ -284,7 +276,7 @@ func (s *Session) emitMessage(cmd uint32, msg interface{}) {
 func (s *Session) close() {
 	xlog.Info("session close id:[%s] remote:[%s] local:[%s] tag:[%s]", s.id, s.RemoteAddr(), s.LocalAddr(), s.GetTagName())
 	s.ctxCancelFunc()
-	s.delFn(s)
+	s.service.onDelete(s)
 	s.reset()
 	sessionPool.Put(s)
 }
@@ -294,5 +286,5 @@ func (s *Session) reset() {
 	s.tag = 0
 	s.id = ""
 	s.channel = nil
-	s.delFn = nil
+	s.service = nil
 }

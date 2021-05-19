@@ -7,13 +7,12 @@ import (
 type (
 	//IService 服务器接口
 	IService interface {
-		Init(string, func(IChannel))
+		Init(string)
 		Start()
 		Stop()
 		GetAddr() string
-		OnAccept(IChannel)
-		NewSession(IChannel, int, func(ISession)) ISession
-		ConnectChannel(string) IChannel
+		GetSessionByAddr(addr string) ISession
+		GetSession(sid string) ISession
 	}
 	//IChannel 信道接口
 	IChannel interface {
@@ -23,12 +22,9 @@ type (
 		RemoteAddr() string
 		LocalAddr() string
 		SetCallBackFn(func([]byte), func())
-		GetService() IService
 	}
 	//ISession 会话接口
 	ISession interface {
-		Start()
-		Stop()
 		UID() string
 		RemoteAddr() string
 		LocalAddr() string

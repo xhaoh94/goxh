@@ -21,6 +21,11 @@ type WService struct {
 	server   *http.Server
 }
 
+func (ws *WService) Init(addr string) {
+	ws.Service.Init(addr)
+	ws.Service.ConnectChannelFunc = ws.connectChannel
+}
+
 //Start 启动
 func (ws *WService) Start() {
 
@@ -36,9 +41,9 @@ func (ws *WService) Start() {
 	go ws.accept()
 }
 func (ws *WService) accept() {
-	defer ws.Wg.Done()
+	defer ws.AcceptWg.Done()
 	ws.IsRun = true
-	ws.Wg.Add(1)
+	ws.AcceptWg.Add(1)
 
 	err := ws.server.ListenAndServe()
 	if err != nil {
@@ -64,12 +69,12 @@ func (ws *WService) connection(conn *websocket.Conn) {
 }
 func (ws *WService) addChannel(conn *websocket.Conn) (wChannel *WChannel) {
 	wChannel = channelPool.Get().(*WChannel)
-	wChannel.init(ws, conn)
+	wChannel.init(conn)
 	return
 }
 
-//ConnectChannel 链接新信道
-func (ws *WService) ConnectChannel(addr string) types.IChannel {
+//connectChannel 链接新信道
+func (ws *WService) connectChannel(addr string) types.IChannel {
 	var connCount int
 	for {
 		u := url.URL{Scheme: "ws", Host: addr, Path: "/ws"}
@@ -94,10 +99,11 @@ func (ws *WService) Stop() {
 	if !ws.IsRun {
 		return
 	}
+	ws.Service.Stop()
 	ws.IsRun = false
 	ws.server.Shutdown(ws.Ctx)
 	ws.CtxCancelFunc()
 	// 等待线程结束
-	ws.Wg.Wait()
+	ws.AcceptWg.Wait()
 
 }

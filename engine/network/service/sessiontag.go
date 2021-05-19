@@ -5,12 +5,12 @@ import "github.com/xhaoh94/goxh/consts"
 type (
 	//SessionTag 会话标签
 	SessionTag struct {
-		tag int
+		tag consts.SessionTag
 	}
 )
 
 //GetTag 获取标签
-func (st *SessionTag) GetTag() int {
+func (st *SessionTag) GetTag() consts.SessionTag {
 	return st.tag
 }
 

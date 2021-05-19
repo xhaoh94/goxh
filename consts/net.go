@@ -1,10 +1,14 @@
 package consts
 
+type (
+	SessionTag int
+)
+
 const (
 	//Connector 连接者
-	Connector int = 1
+	Connector SessionTag = 1
 	//Accept 接收者
-	Accept int = 2
+	Accept SessionTag = 2
 )
 
 const (

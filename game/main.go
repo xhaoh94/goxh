@@ -13,11 +13,11 @@ import (
 )
 
 func main() {
-	flag.StringVar(&app.SID, "id", util.GetUUID(), "uuid")
+	flag.StringVar(&app.SID, "sid", util.GetUUID(), "uuid")
 	flag.StringVar(&app.ServiceType, "type", "all", "服务类型")
-	iAddr := flag.String("interiorAddr", "127.0.0.1:10001", "服务地址")
-	oAddr := flag.String("outsideAddr", "127.0.0.1:10002", "服务地址")
-	rAddr := flag.String("rpcaddr", "127.0.0.1:10003", "rpc服务地址")
+	iAddr := flag.String("iAddr", "127.0.0.1:10001", "服务地址")
+	oAddr := flag.String("oAddr", "127.0.0.1:10002", "服务地址")
+	rAddr := flag.String("grpcAddr", "127.0.0.1:10003", "grpc服务地址")
 	flag.Parse()
 	goxh.SetCodec(new(codec.ProtobufCodec))
 	goxh.SetInteriorService(new(tcp.TService), *iAddr)
