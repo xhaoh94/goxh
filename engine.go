@@ -16,13 +16,12 @@ import (
 
 //Start 启动
 func Start(appConfPath string) {
+	config.LoadAppConfig(appConfPath)
 	xlog.Init()
 	if app.SID == "" {
 		xlog.Error("It needs to be done first Init ")
 		return
 	}
-	config.LoadAppConfig(appConfPath)
-
 	xlog.Info("server start. sid -> [%s]", app.SID)
 	xlog.Info("server type -> [%s]", app.ServiceType)
 	xlog.Info("server version -> [%s]", app.Version)
